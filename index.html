@@ -3,21 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GoW Farbverlauf Tool</title>
+<title>GOW Farbeditor - Verlauf</title>
 <style>
   body { font-family: sans-serif; background: #111; color: #eee; padding: 20px; display: flex; flex-direction: column; align-items: center; }
   .container { width: 100%; max-width: 600px; }
-  textarea, select { width: 100%; margin: 6px 0; padding: 10px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; box-sizing: border-box; resize: vertical; }
+  textarea, select { width: 100%; margin: 6px 0; padding: 10px; border-radius: 8px; border: 1px solid #444; background: #222; color: #fff; box-sizing: border-box; resize: vertical; font-size: 1em; outline: none; }
+  textarea:focus { border-color: #66ff99; }
   .color-row { display: flex; gap: 20px; justify-content: center; margin: 15px 0; }
   .color-item { display: flex; flex-direction: column; align-items: center; flex: 1; }
-  input[type="color"] { -webkit-appearance: none; border: 2px solid #444; width: 60px; height: 60px; cursor: pointer; background: none; border-radius: 8px; padding: 0; }
-  input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+  input[type="color"] { -webkit-appearance: none; border: 2px solid #fff; width: 60px; height: 60px; cursor: pointer; background: none; border-radius: 8px; padding: 0; }
   input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
   label { display: block; margin-bottom: 5px; font-size: 0.85em; color: #aaa; text-transform: uppercase; }
-  .preview { margin-top: 20px; font-size: 1.4em; white-space: pre-wrap; font-weight: bold; text-align: center; min-height: 1.5em; text-shadow: 1px 1px 2px #000; }
+  .preview { margin-top: 20px; font-size: 1.4em; white-space: pre-wrap; font-weight: bold; text-align: center; min-height: 1.5em; line-height: 1.2; }
   .output-wrapper { position: relative; margin-top: 15px; }
-  .box { background: #000; padding: 15px; font-family: monospace; border: 1px dashed #555; word-break: break-all; cursor: pointer; transition: background 0.2s; font-size: 0.9em; min-height: 20px; }
-  .box:hover { background: #1a1a1a; }
+  .box { background: #000; padding: 15px; font-family: monospace; border: 1px solid #444; word-break: break-all; cursor: pointer; transition: background 0.2s; font-size: 0.9em; min-height: 20px; border-radius: 4px; }
+  .box:hover { background: #1a1a1a; border-color: #66ff99; }
   .copy-btn { width: 100%; margin-top: 10px; padding: 12px; background: #444; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
   .counter { margin-top: 15px; font-weight: bold; text-align: right; font-size: 0.9em; }
   .bad { color: #ff5555; }
@@ -27,7 +27,7 @@
 <body>
 
 <div class="container">
-  <h2 style="text-align: center;">Gems of War – Farbtext</h2>
+  <h2 style="text-align: center;">GOW Farbeditor – Verlauf</h2>
 
   <label>Dein Text</label>
   <textarea id="text" rows="3" oninput="saveAndRender()" placeholder="Hier Text eingeben..."></textarea>
@@ -60,7 +60,8 @@
 </div>
 
 <script>
-const LIMIT = 243;
+// NEUES LIMIT: 255
+const LIMIT = 255;
 
 function hex(c){return Math.round(c).toString(16).padStart(2,'0')}
 function lerp(a,b,t){return a+(b-a)*t}
@@ -72,15 +73,20 @@ function build(text, mode, start, end){
   else if(mode==="2char") units=text.match(/.{1,2}/g) || [];
   else units=[...text];
 
-  const colored = units.filter(u=>!u.match(/^\s+$/));
+  const coloredItems = units.filter(u=>!u.match(/^\s+$/));
   let i=0, out="", prev="";
 
   units.forEach(u=>{
-    if(u.match(/^\s+$/)){ out+=u; prev+=u; return; }
-    const t=i/(colored.length-1||1);
+    if(u.match(/^\s+$/)){ 
+        out+=u; 
+        prev+=u; 
+        return; 
+    }
+    const t = coloredItems.length > 1 ? i / (coloredItems.length - 1) : 0;
     const r=hex(lerp(start[0],end[0],t));
     const g=hex(lerp(start[1],end[1],t));
     const b=hex(lerp(start[2],end[2],t));
+    
     out+=`[${r}${g}${b}]${u}`;
     prev+=`<span style="color:#${r}${g}${b}">${u}</span>`;
     i++;
@@ -88,12 +94,11 @@ function build(text, mode, start, end){
   return {out, prev};
 }
 
-// Speichert alle Werte und rendert neu
 function saveAndRender() {
-  localStorage.setItem('gow_text', document.getElementById('text').value);
-  localStorage.setItem('gow_start', document.getElementById('start').value);
-  localStorage.setItem('gow_end', document.getElementById('end').value);
-  localStorage.setItem('gow_mode', document.getElementById('mode').value);
+  localStorage.setItem('gow_grad_text', document.getElementById('text').value);
+  localStorage.setItem('gow_grad_start', document.getElementById('start').value);
+  localStorage.setItem('gow_grad_end', document.getElementById('end').value);
+  localStorage.setItem('gow_grad_mode', document.getElementById('mode').value);
   render();
 }
 
@@ -104,23 +109,9 @@ function render(){
   
   const start = startHex.match(/\w\w/g).map(x=>parseInt(x,16));
   const end = endHex.match(/\w\w/g).map(x=>parseInt(x,16));
-  let mode = document.getElementById('mode').value;
+  const mode = document.getElementById('mode').value;
 
   let result = build(text, mode, start, end);
-
-  // Auto-Optimierung
-  if(result.out.length > LIMIT && mode==="char"){
-    mode="2char";
-    result = build(text, mode, start, end);
-  }
-  if(result.out.length > LIMIT && mode==="2char"){
-    mode="word";
-    result = build(text, mode, start, end);
-  }
-  if(result.out.length > LIMIT){
-    result.out = `[${startHex.slice(1)}]` + text;
-    result.prev = `<span style="color:${startHex}">${text}</span>`;
-  }
 
   document.getElementById('output').textContent = result.out;
   document.getElementById('preview').innerHTML = result.prev;
@@ -128,7 +119,7 @@ function render(){
   const c = result.out.length;
   const counter = document.getElementById('count');
   counter.textContent = `Zeichen: ${c} / ${LIMIT}`;
-  counter.className = "counter " + (c>LIMIT ? "bad":"ok");
+  counter.className = "counter " + (c > LIMIT ? "bad" : "ok");
 }
 
 function copyToClipboard() {
@@ -146,12 +137,11 @@ function copyToClipboard() {
   });
 }
 
-// Lädt alle gespeicherten Einstellungen beim Start
 function loadSettings() {
-  const sText = localStorage.getItem('gow_text');
-  const sStart = localStorage.getItem('gow_start');
-  const sEnd = localStorage.getItem('gow_end');
-  const sMode = localStorage.getItem('gow_mode');
+  const sText = localStorage.getItem('gow_grad_text');
+  const sStart = localStorage.getItem('gow_grad_start');
+  const sEnd = localStorage.getItem('gow_grad_end');
+  const sMode = localStorage.getItem('gow_grad_mode');
 
   if (sText !== null) document.getElementById('text').value = sText;
   if (sStart !== null) document.getElementById('start').value = sStart;
